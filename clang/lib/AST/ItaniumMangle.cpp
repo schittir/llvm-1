@@ -171,6 +171,7 @@ public:
 
   typedef void (MangleContext::*ManglerCallback)(const CXXRecordDecl *Lambda);
   void mangleTypeName(QualType T, CXXRecordDecl *Lambda, ManglerCallback Function, raw_ostream &) override;
+  bool isKernelNamingLambdaSet(CXXRecordDecl *Lambda);
   void markKernelNamingLambdas(CXXRecordDecl *Lambda);
   void mangleCXXCtorComdat(const CXXConstructorDecl *D, raw_ostream &) override;
   void mangleCXXDtorComdat(const CXXDestructorDecl *D, raw_ostream &) override;
@@ -1897,8 +1898,9 @@ void CXXNameMangler::mangleTemplateParamDecl(const NamedDecl *Decl) {
 static void mangleUniqueNameLambda(CXXNameMangler &Mangler, SourceManager &SM,
                                    raw_ostream &Out,
                                    const CXXRecordDecl *Lambda) {
-  const DeclContext *DC = Lambda->getDeclContext();   
-
+  const DeclContext *DC = Lambda->getDeclContext();
+   
+/*
   SourceLocation Loc = Lambda->getLocation();
   PresumedLoc PLoc = SM.getPresumedLoc(Loc);
   Mangler.mangleNumber(PLoc.getLine());
@@ -1919,13 +1921,20 @@ static void mangleUniqueNameLambda(CXXNameMangler &Mangler, SourceManager &SM,
     Loc = SM.getImmediateMacroCallerLoc(Loc);
     if (Loc.isFileID())
       Loc = SM.getImmediateMacroCallerLoc(SLToPrint);
-  }
+  }*/
 }
+
 void ItaniumMangleContextImpl::markKernelNamingLambdas(const CXXRecordDecl *Lambda) {
   Decl *LambdaContextDecl = Lambda->getLambdaContextDecl();
   TagDecl *TD = dyn_cast<TagDecl*>(LambdaContextDecl); 
   KernelNamingLambdaSet.insert(TD);
   //Lambda->getDeclContext();
+}
+
+bool ItaniumManlgeContextImpl::isKernelNamingLambda(const CXXRecordDecl *Lambda) {
+  Decl *LambdaContextDecl = Lambda->getLambdaContextDecl();
+  TagDecl *TD = dyn_cast<TagDecl*>(LambdaContextDecl);
+  return (KernelNamingLambdaSet.find(TD) != KernelNamingLambdaSet.end());
 }
 
 void CXXNameMangler::mangleLambda(const CXXRecordDecl *Lambda) {
@@ -1957,7 +1966,10 @@ void CXXNameMangler::mangleLambda(const CXXRecordDecl *Lambda) {
   Out << "Ul";
   mangleLambdaSig(Lambda);
   Out << "E";
-
+  
+  if (Context.isKernelNamingLambda) {
+  //
+  } 
   if (Context.isUniqueNameMangler()) {
     mangleUniqueNameLambda(
         *this, Context.getASTContext().getSourceManager(), Out, Lambda);
@@ -6327,6 +6339,7 @@ void ItaniumMangleContextImpl::mangleCXXRTTIName(QualType Ty,
   Mangler.getStream() << "_ZTS";
   Mangler.mangleType(Ty);
 }
+
 
 typedef void (MangleContext::*ManglerCallback)(const CXXRecordDecl *Lambda);
 void mangleTypeName(QualType T, const CXXRecordDecl *Lambda, ManglerCallback Function, raw_ostream &Out) {
